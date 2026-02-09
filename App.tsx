@@ -24,24 +24,43 @@ const CoffeeIcon = () => (
   </div>
 );
 
+/**
+ * PERFORMANCE OPTIMIZATIONS:
+ * 1. Image Optimization: Reduced bgImageUrl width from 2000px to 1200px.
+ *    Expected Impact: ~50-60% reduction in image payload size and faster decoding.
+ * 2. Component Hoisting: Moved FullScreenBackground outside App to prevent
+ *    unnecessary unmounting/remounting on every render.
+ * 3. Lazy Initialization: Used functional initializer for 'orders' state to avoid
+ *    redundant localStorage access and an extra render cycle on mount.
+ */
+
+const bgImageUrl = "https://images.unsplash.com/photo-1442512595331-e89e73853f31?q=80&w=1200&auto=format&fit=crop";
+
+// Shared background component - Memoized and defined outside to prevent re-creation/unmounting on every render
+const FullScreenBackground = React.memo(() => (
+  <div className="fixed inset-0 z-[-1]">
+    <div
+      className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: `url('${bgImageUrl}')` }}
+    />
+    <div className="absolute inset-0 bg-black/60 backdrop-blur-[4px]" />
+  </div>
+));
+
 const App: React.FC = () => {
   const [view, setView] = useState<AppView>('customer');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [orders, setOrders] = useState<Order[]>([]);
+
+  // Use lazy state initialization to avoid redundant render on mount
+  const [orders, setOrders] = useState<Order[]>(() => {
+    const savedOrders = localStorage.getItem('cafe_gandom_orders');
+    return savedOrders ? JSON.parse(savedOrders) : [];
+  });
+
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [showOrderSuccess, setShowOrderSuccess] = useState(false);
-
-  const bgImageUrl = "https://images.unsplash.com/photo-1442512595331-e89e73853f31?q=80&w=2000&auto=format&fit=crop";
-
-  // Load orders from localStorage on mount
-  useEffect(() => {
-    const savedOrders = localStorage.getItem('cafe_gandom_orders');
-    if (savedOrders) {
-      setOrders(JSON.parse(savedOrders));
-    }
-  }, []);
 
   // Sync orders to localStorage
   const updateOrders = (newOrders: Order[]) => {
@@ -117,17 +136,6 @@ const App: React.FC = () => {
       updateOrders(orders.filter(o => o.id !== id));
     }
   };
-
-  // Shared background component
-  const FullScreenBackground = () => (
-    <div className="fixed inset-0 z-[-1]">
-      <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url('${bgImageUrl}')` }}
-      />
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-[4px]" />
-    </div>
-  );
 
   // --- ADMIN LOGIN VIEW ---
   if (view === 'admin-login') {
