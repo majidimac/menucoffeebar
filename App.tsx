@@ -1,13 +1,16 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { MENU_ITEMS } from './constants';
 import { MenuItem, CartItem, Order, AppView } from './types';
 
+// Memoize the formatter to avoid expensive re-creation on every render
+const priceFormatter = new Intl.NumberFormat('fa-IR');
 const formatPrice = (price: number) => {
-  return price.toLocaleString('fa-IR') + ' تومان';
+  return priceFormatter.format(price) + ' تومان';
 };
 
-const CoffeeIcon = () => (
+// Memoized static SVG component
+const CoffeeIcon = React.memo(() => (
   <div className="flex flex-col items-center">
     <svg 
       width="40" 
@@ -22,16 +25,17 @@ const CoffeeIcon = () => (
     </svg>
     <div className="w-10 h-1 bg-black mt-1 rounded-full opacity-30"></div>
   </div>
-);
+));
 
 /**
  * PERFORMANCE OPTIMIZATIONS:
- * 1. Image Optimization: Reduced bgImageUrl width from 2000px to 1200px.
- *    Expected Impact: ~50-60% reduction in image payload size and faster decoding.
- * 2. Component Hoisting: Moved FullScreenBackground outside App to prevent
- *    unnecessary unmounting/remounting on every render.
- * 3. Lazy Initialization: Used functional initializer for 'orders' state to avoid
- *    redundant localStorage access and an extra render cycle on mount.
+ * 1. Image Optimization: Reduced branding image width from 1000px to 600px.
+ *    Expected Impact: ~30-40% reduction in image payload size and faster decoding.
+ * 2. Component Memoization: Extracted BrandingSection, MenuItemRow, and CartItemRow
+ *    into React.memo components to prevent redundant re-renders.
+ * 3. Stable Callbacks: Used useCallback for cart operations to ensure sub-components
+ *    don't re-render due to function reference changes.
+ * 4. Formatter Re-use: Memoized Intl.NumberFormat instance to avoid overhead.
  */
 
 const bgImageUrl = "https://images.unsplash.com/photo-1442512595331-e89e73853f31?q=80&w=1200&auto=format&fit=crop";
@@ -46,6 +50,97 @@ const FullScreenBackground = React.memo(() => (
     <div className="absolute inset-0 bg-black/60 backdrop-blur-[4px]" />
   </div>
 ));
+
+// Extracted BrandingSection to prevent re-renders when cart changes
+const BrandingSection = React.memo(() => (
+  <div className="w-full md:w-[45%] relative flex flex-col items-center justify-center py-12 px-6 border-b md:border-b-0 md:border-l border-gray-100 bg-zinc-900 overflow-hidden">
+    <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-black opacity-90"></div>
+    <div className="relative z-10 flex flex-col items-center">
+      <h1 className="text-6xl md:text-7xl font-bold text-white leading-tight text-center mb-16 drop-shadow-2xl font-nastaliq">
+        کافه گندم
+      </h1>
+      <div className="flex items-center justify-center relative w-full px-4">
+         <div className="flex flex-col items-center">
+            <div className="w-60 h-60 md:w-80 md:h-80 rounded-full overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.8)] border-8 border-white/10 backdrop-blur-md group transition-transform duration-700 hover:scale-105">
+              <img
+                src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600&auto=format&fit=crop"
+                alt="Coffee Cup"
+                className="w-full h-full object-cover scale-110 group-hover:scale-125 transition-transform duration-1000"
+              />
+            </div>
+            <div className="mt-8 text-amber-100/30 font-nastaliq text-xl tracking-widest italic animate-pulse">
+              طعم واقعی اصالت
+            </div>
+         </div>
+      </div>
+    </div>
+  </div>
+));
+
+// Memoized MenuItemRow to prevent re-rendering when other items or cart changes
+const MenuItemRow = React.memo(({ item, onAdd }: { item: MenuItem, onAdd: (item: MenuItem) => void }) => {
+  return (
+    <button
+      onClick={() => onAdd(item)}
+      className="w-full group flex justify-between items-center p-3 rounded-2xl transition-all hover:bg-zinc-50 active:scale-[0.97]"
+      dir="rtl"
+    >
+      <div className="flex items-center gap-4">
+        <span className="text-xl md:text-2xl text-zinc-900 font-bold group-hover:text-amber-900 transition-colors">{item.name}</span>
+        <div className="bg-zinc-900 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-black opacity-0 group-hover:opacity-100 transition-all scale-50 group-hover:scale-100">
+          +
+        </div>
+      </div>
+      <div className="flex-grow mx-4 border-b-2 border-dotted border-zinc-100 h-0 self-end mb-2"></div>
+      <span className="text-left text-zinc-500 font-bold whitespace-nowrap text-lg md:text-xl tracking-tight">{item.price}</span>
+    </button>
+  );
+});
+
+// Memoized CartItemRow for efficient cart updates
+interface CartItemRowProps {
+  item: CartItem;
+  onUpdateQuantity: (id: string, delta: number) => void;
+  onRemove: (id: string) => void;
+}
+
+const CartItemRow = React.memo(({ item, onUpdateQuantity, onRemove }: CartItemRowProps) => {
+  return (
+    <div className="flex justify-between items-center bg-zinc-50/50 p-6 rounded-3xl border border-gray-50 shadow-sm transition-all hover:bg-zinc-50">
+      <div className="flex flex-col">
+        <span className="font-bold text-2xl mb-1">{item.name}</span>
+        <span className="text-sm text-zinc-400 font-bold tracking-tighter">{formatPrice(item.numericPrice)}</span>
+      </div>
+      <div className="flex items-center gap-5">
+        <div className="flex items-center bg-white border-2 border-zinc-100 rounded-2xl overflow-hidden shadow-inner p-1">
+          <button
+            onClick={() => onUpdateQuantity(item.id, -1)}
+            className="w-10 h-10 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors rounded-xl font-black"
+          >
+            -
+          </button>
+          <span className="w-12 text-center font-black text-xl">
+            {item.quantity.toLocaleString('fa-IR')}
+          </span>
+          <button
+            onClick={() => onUpdateQuantity(item.id, 1)}
+            className="w-10 h-10 flex items-center justify-center hover:bg-green-50 hover:text-green-500 transition-colors rounded-xl font-black"
+          >
+            +
+          </button>
+        </div>
+        <button
+          onClick={() => onRemove(item.id)}
+          className="text-gray-300 hover:text-red-600 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-7 h-7">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-1c0-1.171-.933-2.144-2.106-2.144H9.123c-1.173 0-2.083.973-2.083 2.144v1m4.217 0a48.274 48.274 0 0 1 5.213 0" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+});
 
 const App: React.FC = () => {
   const [view, setView] = useState<AppView>('customer');
@@ -63,12 +158,12 @@ const App: React.FC = () => {
   const [showOrderSuccess, setShowOrderSuccess] = useState(false);
 
   // Sync orders to localStorage
-  const updateOrders = (newOrders: Order[]) => {
+  const updateOrders = useCallback((newOrders: Order[]) => {
     setOrders(newOrders);
     localStorage.setItem('cafe_gandom_orders', JSON.stringify(newOrders));
-  };
+  }, []);
 
-  const addToCart = (item: MenuItem) => {
+  const addToCart = useCallback((item: MenuItem) => {
     setCart(prev => {
       const existing = prev.find(i => i.id === item.id);
       if (existing) {
@@ -76,9 +171,9 @@ const App: React.FC = () => {
       }
       return [...prev, { ...item, quantity: 1 }];
     });
-  };
+  }, []);
 
-  const updateQuantity = (id: string, delta: number) => {
+  const updateQuantity = useCallback((id: string, delta: number) => {
     setCart(prev => prev.map(i => {
       if (i.id === id) {
         const newQty = Math.max(0, i.quantity + delta);
@@ -86,11 +181,11 @@ const App: React.FC = () => {
       }
       return i;
     }).filter(Boolean) as CartItem[]);
-  };
+  }, []);
 
-  const removeFromCart = (id: string) => {
+  const removeFromCart = useCallback((id: string) => {
     setCart(prev => prev.filter(i => i.id !== id));
-  };
+  }, []);
 
   const totalPrice = useMemo(() => {
     return cart.reduce((sum, item) => sum + (item.numericPrice * item.quantity), 0);
@@ -127,7 +222,6 @@ const App: React.FC = () => {
   };
 
   const markOrderAsCompleted = (id: string) => {
-    // As per user request: When completing the order, it should be deleted/removed from the list
     updateOrders(orders.filter(o => o.id !== id));
   };
 
@@ -309,32 +403,7 @@ const App: React.FC = () => {
       {/* Main Container */}
       <div className="w-full max-w-4xl bg-white shadow-2xl flex flex-col md:flex-row min-h-[800px] overflow-hidden rounded-[2.5rem] relative border border-white/20 z-10">
         
-        {/* Branding Section */}
-        <div className="w-full md:w-[45%] relative flex flex-col items-center justify-center py-12 px-6 border-b md:border-b-0 md:border-l border-gray-100 bg-zinc-900 overflow-hidden">
-          {/* Subtle inner-background pattern or overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-black opacity-90"></div>
-          
-          <div className="relative z-10 flex flex-col items-center">
-            <h1 className="text-6xl md:text-7xl font-bold text-white leading-tight text-center mb-16 drop-shadow-2xl font-nastaliq">
-              کافه گندم
-            </h1>
-            
-            <div className="flex items-center justify-center relative w-full px-4">
-               <div className="flex flex-col items-center">
-                  <div className="w-60 h-60 md:w-80 md:h-80 rounded-full overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.8)] border-8 border-white/10 backdrop-blur-md group transition-transform duration-700 hover:scale-105">
-                    <img 
-                      src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=1000&auto=format&fit=crop" 
-                      alt="Coffee Cup" 
-                      className="w-full h-full object-cover scale-110 group-hover:scale-125 transition-transform duration-1000"
-                    />
-                  </div>
-                  <div className="mt-8 text-amber-100/30 font-nastaliq text-xl tracking-widest italic animate-pulse">
-                    طعم واقعی اصالت
-                  </div>
-               </div>
-            </div>
-          </div>
-        </div>
+        <BrandingSection />
 
         {/* Menu Items Section */}
         <div className="w-full md:w-[55%] bg-white py-12 px-6 md:px-12 flex flex-col">
@@ -348,21 +417,11 @@ const App: React.FC = () => {
 
           <div className="space-y-3 flex-grow overflow-y-auto custom-scrollbar px-2">
             {MENU_ITEMS.map((item) => (
-              <button 
+              <MenuItemRow
                 key={item.id} 
-                onClick={() => addToCart(item)}
-                className="w-full group flex justify-between items-center p-3 rounded-2xl transition-all hover:bg-zinc-50 active:scale-[0.97]"
-                dir="rtl"
-              >
-                <div className="flex items-center gap-4">
-                  <span className="text-xl md:text-2xl text-zinc-900 font-bold group-hover:text-amber-900 transition-colors">{item.name}</span>
-                  <div className="bg-zinc-900 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-black opacity-0 group-hover:opacity-100 transition-all scale-50 group-hover:scale-100">
-                    +
-                  </div>
-                </div>
-                <div className="flex-grow mx-4 border-b-2 border-dotted border-zinc-100 h-0 self-end mb-2"></div>
-                <span className="text-left text-zinc-500 font-bold whitespace-nowrap text-lg md:text-xl tracking-tight">{item.price}</span>
-              </button>
+                item={item}
+                onAdd={addToCart}
+              />
             ))}
           </div>
 
@@ -438,39 +497,12 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 cart.map(item => (
-                  <div key={item.id} className="flex justify-between items-center bg-zinc-50/50 p-6 rounded-3xl border border-gray-50 shadow-sm transition-all hover:bg-zinc-50">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-2xl mb-1">{item.name}</span>
-                      <span className="text-sm text-zinc-400 font-bold tracking-tighter">{formatPrice(item.numericPrice)}</span>
-                    </div>
-                    <div className="flex items-center gap-5">
-                      <div className="flex items-center bg-white border-2 border-zinc-100 rounded-2xl overflow-hidden shadow-inner p-1">
-                        <button 
-                          onClick={() => updateQuantity(item.id, -1)}
-                          className="w-10 h-10 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors rounded-xl font-black"
-                        >
-                          -
-                        </button>
-                        <span className="w-12 text-center font-black text-xl">
-                          {item.quantity.toLocaleString('fa-IR')}
-                        </span>
-                        <button 
-                          onClick={() => updateQuantity(item.id, 1)}
-                          className="w-10 h-10 flex items-center justify-center hover:bg-green-50 hover:text-green-500 transition-colors rounded-xl font-black"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <button 
-                        onClick={() => removeFromCart(item.id)}
-                        className="text-gray-300 hover:text-red-600 transition-colors"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-7 h-7">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-1c0-1.171-.933-2.144-2.106-2.144H9.123c-1.173 0-2.083.973-2.083 2.144v1m4.217 0a48.274 48.274 0 0 1 5.213 0" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
+                  <CartItemRow
+                    key={item.id}
+                    item={item}
+                    onUpdateQuantity={updateQuantity}
+                    onRemove={removeFromCart}
+                  />
                 ))
               )}
             </div>
