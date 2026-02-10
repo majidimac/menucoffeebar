@@ -102,7 +102,7 @@ const App: React.FC = () => {
 
   const submitOrder = () => {
     const newOrder: Order = {
-      id: Math.random().toString(36).substr(2, 6).toUpperCase(),
+      id: Math.random().toString(36).slice(2, 8).toUpperCase(),
       items: [...cart],
       totalPrice,
       timestamp: Date.now(),
@@ -323,7 +323,7 @@ const App: React.FC = () => {
                <div className="flex flex-col items-center">
                   <div className="w-60 h-60 md:w-80 md:h-80 rounded-full overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.8)] border-8 border-white/10 backdrop-blur-md group transition-transform duration-700 hover:scale-105">
                     <img 
-                      src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=1000&auto=format&fit=crop" 
+                      src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600&auto=format&fit=crop"
                       alt="Coffee Cup" 
                       className="w-full h-full object-cover scale-110 group-hover:scale-125 transition-transform duration-1000"
                     />
@@ -408,13 +408,13 @@ const App: React.FC = () => {
 
       {/* Cart Sidebar Overlay */}
       {isCartOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <div className="fixed inset-0 z-50 flex justify-start">
           <div 
             className="absolute inset-0 bg-zinc-900/60 backdrop-blur-md transition-opacity"
             onClick={() => setIsCartOpen(false)}
           ></div>
           <div 
-            className="relative w-full max-w-lg bg-white h-full shadow-2xl flex flex-col p-10 animate-slide-left border-r border-gray-100"
+            className="relative w-full max-w-lg bg-white h-full shadow-2xl flex flex-col p-10 animate-slide-left border-l border-gray-100"
             dir="rtl"
           >
             <div className="flex justify-between items-center mb-12">
