@@ -3,11 +3,15 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { MENU_ITEMS } from './constants';
 import { MenuItem, CartItem, Order, AppView } from './types';
 
+// Global formatters to optimize performance by avoiding repeated instantiation
+const priceFormatter = new Intl.NumberFormat('fa-IR');
+const numberFormatter = new Intl.NumberFormat('fa-IR');
+
 const formatPrice = (price: number) => {
-  return price.toLocaleString('fa-IR') + ' تومان';
+  return priceFormatter.format(price) + ' تومان';
 };
 
-const CoffeeIcon = () => (
+const CoffeeIcon = React.memo(() => (
   <div className="flex flex-col items-center">
     <svg 
       width="40" 
@@ -22,7 +26,7 @@ const CoffeeIcon = () => (
     </svg>
     <div className="w-10 h-1 bg-black mt-1 rounded-full opacity-30"></div>
   </div>
-);
+));
 
 /**
  * PERFORMANCE OPTIMIZATIONS:
@@ -102,7 +106,7 @@ const App: React.FC = () => {
 
   const submitOrder = () => {
     const newOrder: Order = {
-      id: Math.random().toString(36).substr(2, 6).toUpperCase(),
+      id: Math.random().toString(36).slice(2, 8).padEnd(6, '0').toUpperCase(),
       items: [...cart],
       totalPrice,
       timestamp: Date.now(),
@@ -275,7 +279,7 @@ const App: React.FC = () => {
                           <span className="text-[10px] text-zinc-400">{formatPrice(item.numericPrice)}</span>
                         </div>
                         <span className="bg-zinc-900 text-white w-8 h-8 flex items-center justify-center rounded-lg font-black text-sm">
-                          {item.quantity.toLocaleString('fa-IR')}
+                          {numberFormatter.format(item.quantity)}
                         </span>
                       </div>
                     ))}
@@ -361,7 +365,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex-grow mx-4 border-b-2 border-dotted border-zinc-100 h-0 self-end mb-2"></div>
-                <span className="text-left text-zinc-500 font-bold whitespace-nowrap text-lg md:text-xl tracking-tight">{item.price}</span>
+                <span className="text-left text-zinc-500 font-bold whitespace-nowrap text-lg md:text-xl tracking-tight">{formatPrice(item.numericPrice)}</span>
               </button>
             ))}
           </div>
@@ -401,7 +405,7 @@ const App: React.FC = () => {
         </svg>
         {totalItemsCount > 0 && (
           <span className="absolute top-3 left-3 bg-amber-500 text-white text-[10px] font-black px-2 py-1 rounded-lg animate-bounce border-2 border-zinc-900">
-            {totalItemsCount.toLocaleString('fa-IR')}
+            {numberFormatter.format(totalItemsCount)}
           </span>
         )}
       </button>
@@ -414,7 +418,7 @@ const App: React.FC = () => {
             onClick={() => setIsCartOpen(false)}
           ></div>
           <div 
-            className="relative w-full max-w-lg bg-white h-full shadow-2xl flex flex-col p-10 animate-slide-left border-r border-gray-100"
+            className="relative w-full max-w-lg bg-white h-full shadow-2xl flex flex-col p-10 animate-slide-left border-l border-gray-100"
             dir="rtl"
           >
             <div className="flex justify-between items-center mb-12">
@@ -452,7 +456,7 @@ const App: React.FC = () => {
                           -
                         </button>
                         <span className="w-12 text-center font-black text-xl">
-                          {item.quantity.toLocaleString('fa-IR')}
+                          {numberFormatter.format(item.quantity)}
                         </span>
                         <button 
                           onClick={() => updateQuantity(item.id, 1)}
