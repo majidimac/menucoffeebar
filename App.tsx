@@ -3,11 +3,17 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { MENU_ITEMS } from './constants';
 import { MenuItem, CartItem, Order, AppView } from './types';
 
+// Reusable formatters to avoid expensive re-instantiation in render loops
+const faFormatter = new Intl.NumberFormat('fa-IR');
+const timeFormatter = new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const dateFormatter = new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
 const formatPrice = (price: number) => {
-  return price.toLocaleString('fa-IR') + ' تومان';
+  return faFormatter.format(price) + ' تومان';
 };
 
-const CoffeeIcon = () => (
+// Memoized to prevent re-renders when the parent App state changes
+const CoffeeIcon = React.memo(() => (
   <div className="flex flex-col items-center">
     <svg 
       width="40" 
@@ -22,7 +28,7 @@ const CoffeeIcon = () => (
     </svg>
     <div className="w-10 h-1 bg-black mt-1 rounded-full opacity-30"></div>
   </div>
-);
+));
 
 /**
  * PERFORMANCE OPTIMIZATIONS:
@@ -102,7 +108,8 @@ const App: React.FC = () => {
 
   const submitOrder = () => {
     const newOrder: Order = {
-      id: Math.random().toString(36).substr(2, 6).toUpperCase(),
+      // Use slice and padEnd for robust and modern ID generation
+      id: Math.random().toString(36).slice(2, 8).padEnd(6, '0').toUpperCase(),
       items: [...cart],
       totalPrice,
       timestamp: Date.now(),
@@ -238,9 +245,9 @@ const App: React.FC = () => {
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                         </svg>
-                        <span>{new Date(order.timestamp).toLocaleTimeString('fa-IR')}</span>
+                        <span>{timeFormatter.format(order.timestamp)}</span>
                         <span className="mx-1">•</span>
-                        <span>{new Date(order.timestamp).toLocaleDateString('fa-IR')}</span>
+                        <span>{dateFormatter.format(order.timestamp)}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
@@ -275,7 +282,7 @@ const App: React.FC = () => {
                           <span className="text-[10px] text-zinc-400">{formatPrice(item.numericPrice)}</span>
                         </div>
                         <span className="bg-zinc-900 text-white w-8 h-8 flex items-center justify-center rounded-lg font-black text-sm">
-                          {item.quantity.toLocaleString('fa-IR')}
+                          {faFormatter.format(item.quantity)}
                         </span>
                       </div>
                     ))}
@@ -401,7 +408,7 @@ const App: React.FC = () => {
         </svg>
         {totalItemsCount > 0 && (
           <span className="absolute top-3 left-3 bg-amber-500 text-white text-[10px] font-black px-2 py-1 rounded-lg animate-bounce border-2 border-zinc-900">
-            {totalItemsCount.toLocaleString('fa-IR')}
+            {faFormatter.format(totalItemsCount)}
           </span>
         )}
       </button>
@@ -452,7 +459,7 @@ const App: React.FC = () => {
                           -
                         </button>
                         <span className="w-12 text-center font-black text-xl">
-                          {item.quantity.toLocaleString('fa-IR')}
+                          {faFormatter.format(item.quantity)}
                         </span>
                         <button 
                           onClick={() => updateQuantity(item.id, 1)}
